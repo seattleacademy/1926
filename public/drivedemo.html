@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Dance Demo</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+    <div id='container'>
+        <div>millivolts: <span id="millivolts">...</span></div>
+        <div>
+            <button id='dance'>dance</button>
+            <textarea id="theDance" rows="10" cols="50">[-100,100,500],
+[100,-100,500],
+[0,0,100]
+        </textarea>
+        </div>
+        <div> <button id='dance1'>dance1</button></div>
+        <div>Provide an array with a list of [leftVelocity,righVelocity,duration] and the robot will dance!</div>
+    </div>
+    <script src='js/jquery-3.4.1.min.js'></script>
+    <script>
+    function dance1(e) {
+        let tempo = 1; //Notes should be at least 4 in duration
+        let dance1 = [];
+        dance1.push([0, 0, 100 * tempo]);
+        dance1.push([-100, 100, 1000 * tempo]);
+        dance1.push([100, -100, 1000 * tempo]);
+        dance1.push([0, 0, 100 * tempo]);
+        console.log(JSON.stringify(dance1));
+        fetch('/dance?dance=' + JSON.stringify(dance1));
+    }
+    $('#dance1').click(dance1);
+
+    $("#dance").click(function() {
+        dance = $("#theDance").val();
+        $.post("/dance", JSON.stringify({
+            dance: dance
+        }));
+    });
+
+    var latestData = {};
+
+    function readSensors() {
+        fetch('/sensors')
+            .then((resp) => resp.json())
+            .then(function(data) {
+                latestData = data;
+                // console.log(latestData)
+                $('#millivolts').text(latestData.voltage);
+            })
+    }
+    setInterval(readSensors, 2000);
+    </script>
+</body>
+
+</html>

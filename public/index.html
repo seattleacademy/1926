@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SAASBOT</title>
+</head>
+
+<body>
+    <div>
+        <button id="setRTS">setRTS</button>
+        <button id="forward">forward</button>
+        <button id="halt">halt</button>
+        <button id="cw" class="drive" data-command='{"left":-100,"right":100}'>cw</button>
+        <button id="nw" class="drive" data-command='{"left":100,"right":50}'>nw</button>
+        <button id="back" class="drive" data-command='{"left":-50,"right":-50}'>back</button>
+        <button class="drive" data-command='{"left":100,"right":-100}'>ccw</button>
+        <button class="drive" data-command='{"left":50,"right":100}'>ne</button>
+        <button class="drive" data-command='{"left":100,"right":50}'>nw</button>
+    </div>
+    Left    <div id="leftSpeed">0</div>
+
+    Right <div id="rightSpeed">0</div>
+    <div id="mode">0</div>
+
+    <script src='js/jquery-3.4.1.min.js'></script>
+    <script>
+
+    var latestDate = {};
+
+    function sensorUpdate(data) {
+        console.log(JSON.stringify(data, null, 4));
+        latestData = data;
+
+
+    }
+console.log(window.document.location)
+
+    // var host = window.document.location.host;
+    // var ws = new WebSocket('ws://' + host);
+    // //var ws = new WebSocket('ws://pi5:5001');
+    // ws.onmessage = function(event) {
+    //     sensorUpdate(JSON.parse(event.data));
+    // };
+  
+
+    $(".drive").click(function(e) {
+        command = $(this).data('command');
+        $.post("/drive", JSON.stringify({
+            left: command.left,
+            right: command.right
+        }));
+    });
+
+    $("#setRTS").click(function() {
+        console.log('setRTS')
+        $.post("/setRTS");
+    });
+
+    $("#forward").click(function() {
+        console.log(JSON.stringify({
+            left: 20,
+            right: 30
+        }))
+        $.post("/drive", JSON.stringify({
+            left: 20,
+            right: 30
+        }));
+    });
+    $("#halt").click(function() {
+        $.post("/drive", JSON.stringify({
+            left: 0,
+            right: 0
+        }));
+    });
+    $("textarea").keydown(function(e) {
+        e.stopPropagation()
+    });
+
+    $("body").keydown(function(e) {
+        // iv = 0;
+
+        console.log(e.keyCode);
+        var key = e.keyCode;
+        oldRight = $("#rightSpeed").text() * 1;
+        oldLeft = $("#leftSpeed").text() * 1;
+        if (oldRight > 500) {
+            oldRight = 500;
+        } else if (oldRight < -500) {
+            oldRight = -500;
+        }
+        if (oldLeft > 500) {
+            oldLeft = 500;
+        } else if (oldLeft < -500) {
+            oldLeft = -500;
+        }
+
+        function slowToStop() {;
+            if (oldLeft <= 50 && oldLeft >= -50) {
+                oldLeft = 0;
+            } else if (oldLeft > 50 || oldLeft < -50) {
+                oldLeft = Math.round(oldLeft / 2);
+            }
+            if (oldRight <= 50 && oldRight >= -50) {
+                oldRight = 0;
+            } else if (oldRight > 50 || oldRight < -50) {
+                oldRight = Math.round(oldRight / 2);
+            }
+        }
+        if (key == 87) {
+            oldLeft += 50;
+            oldRight += 50;
+            console.log("forward", oldLeft, oldRight);
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        if (key == 83) {
+            oldRight -= 50;
+            oldLeft -= 50;
+            console.log("backward", oldLeft, oldRight);
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        if (key == 65) {
+            oldRight += 50;
+            oldLeft -= 50;
+            console.log("rotateright", oldLeft, oldRight);
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        if (key == 68) {
+            oldRight -= 50;
+            oldLeft += 50;
+            console.log("rotateleft", oldLeft, oldRight);
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        if (key == 13) {
+            oldRight = 0;
+            oldLeft = 0;
+            console.log("rotateleft", oldLeft, oldRight);
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        if (key == 32) {
+            slowToStop();
+            console.log("stop");
+            $.post("/drive", JSON.stringify({
+                left: oldLeft,
+                right: oldRight
+            }));
+        }
+        $("#leftSpeed").text(oldLeft);
+        $("#rightSpeed").text(oldRight);
+
+    });
+
+    $("#sing").click(function() {
+        song = $("#song").val();
+        $.post("/sing", JSON.stringify({
+            song: song
+        }));
+    });
+
+    $("button").focus(function(e) {
+        this.blur(); //Prevents space bar from clicking button
+    });
+
+  
+    </script>
+</body>
+
+</html>

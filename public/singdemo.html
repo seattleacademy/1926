@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Sing Demo</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+    <div id='container'>
+        <div>millivolts: <span id="millivolts">...</span></div>
+        <div>
+            <button id='sing'>sing</button>
+            <textarea id="song" rows="10" cols="50">[65,5],[77,10]</textarea>
+        </div>
+        <div> <button id='song1'>song1</button></div>
+        <div>This page demonstrates playing music on the robot. Pass in an array of notes giving the midi not followed by the duration in 1/64 of seconds. Midi notes less than 32 or more than 127 are played as rests.</div>
+        <div><img src="midiNoteNumbers.gif" alt="midoNoteNumbers.gif" /></div>
+    </div>
+    <script src='js/jquery-3.4.1.min.js'></script>
+    <script>
+    function playSong1(e) {
+        let transpose = 0; //12 brings up 1 octave
+        let tempo = 1; //Notes should be at least 4 in duration
+        let song1 = [];
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([81 + transpose, 30 * tempo]);
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([84 + transpose, 20 * tempo]);
+        song1.push([83 + transpose, 20 * tempo]);
+        song1.push([0  + transpose, 20 * tempo]);
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([81 + transpose, 30 * tempo]);
+        song1.push([79 + transpose, 15 * tempo]);
+        song1.push([86 + transpose, 20 * tempo]);
+        song1.push([84 + transpose, 15 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+        song1.push([57 + transpose, 5 * tempo]);
+
+        console.log(JSON.stringify(song1));
+        fetch('/sing?song=' + JSON.stringify(song1));
+    }
+    $('#song1').click(playSong1);
+
+    $("#sing").click(function() {
+        song = $("#song").val();
+        $.post("/sing", JSON.stringify({
+            song: song
+        }));
+    });
+
+    var latestData = {};
+
+    function readSensors() {
+        fetch('/sensors')
+            .then((resp) => resp.json())
+            .then(function(data) {
+                latestData = data;
+                // console.log(latestData)
+                $('#millivolts').text(latestData.voltage);
+            })
+    }
+    setInterval(readSensors, 2000);
+    </script>
+</body>
+
+</html>

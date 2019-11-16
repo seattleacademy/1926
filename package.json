@@ -1,0 +1,26 @@
+{
+  "name": "1926",
+  "version": "0.0.1",
+  "description": "Fresh start on saasbot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seattleacademy/1926.git"
+  },
+  "author": "Gary Anderson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/seattleacademy/1926/issues"
+  },
+  "homepage": "https://github.com/seattleacademy/1926#readme",
+  "dependencies": {
+    "@serialport/parser-inter-byte-timeout": "*",
+    "body-parser": "*",
+    "express": "*",
+    "serialport": "*",
+    "serve-index": "*"
+  }
+}
