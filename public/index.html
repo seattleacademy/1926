@@ -51,8 +51,8 @@ console.log(window.document.location)
                 latestData = data;
                 // console.log(latestData)
                 $('#millivolts').text(latestData.voltage);
-                let sensorsNow = JSON.stringify(latestData)
-                sensorsNow = sensorsNow.split(',').join('\n');
+                let sensorsNow = JSON.stringify(latestData,null,2)
+                //sensorsNow = sensorsNow.split(',').join('\n');
                 $('#mode').text(sensorsNow);
             })
     }
