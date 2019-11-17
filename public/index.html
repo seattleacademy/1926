@@ -8,6 +8,7 @@
 <body>
     <div>
         <button id="setRTS">setRTS</button>
+        <button id="reset">reset</button>
         <button id="forward">forward</button>
         <button id="halt">halt</button>
         <button id="cw" class="drive" data-command='{"left":-100,"right":100}'>cw</button>
@@ -20,8 +21,8 @@
     Left    <div id="leftSpeed">0</div>
 
     Right <div id="rightSpeed">0</div>
-    <div id="mode">0</div>
-
+    <pre id="mode">0</pre>
+    Voltage <div id='millivolts'>.</div>
     <script src='js/jquery-3.4.1.min.js'></script>
     <script>
 
@@ -43,6 +44,20 @@ console.log(window.document.location)
     // };
   
 
+      function readSensors() {
+        fetch('/sensors')
+            .then((resp) => resp.json())
+            .then(function(data) {
+                latestData = data;
+                // console.log(latestData)
+                $('#millivolts').text(latestData.voltage);
+                let sensorsNow = JSON.stringify(latestData)
+                sensorsNow = sensorsNow.split(',').join('\n');
+                $('#mode').text(sensorsNow);
+            })
+    }
+    setInterval(readSensors, 200);
+
     $(".drive").click(function(e) {
         command = $(this).data('command');
         $.post("/drive", JSON.stringify({
@@ -51,9 +66,9 @@ console.log(window.document.location)
         }));
     });
 
-    $("#setRTS").click(function() {
-        console.log('setRTS')
-        $.post("/setRTS");
+    $("#reset").click(function() {
+        console.log('reset')
+        $.post("/reset");
     });
 
     $("#forward").click(function() {
@@ -125,8 +140,8 @@ console.log(window.document.location)
             }));
         }
         if (key == 65) {
-            oldRight += 50;
-            oldLeft -= 50;
+            oldRight -= 50;
+            oldLeft += 50;
             console.log("rotateright", oldLeft, oldRight);
             $.post("/drive", JSON.stringify({
                 left: oldLeft,
@@ -134,8 +149,8 @@ console.log(window.document.location)
             }));
         }
         if (key == 68) {
-            oldRight -= 50;
-            oldLeft += 50;
+            oldRight += 50;
+            oldLeft -= 50;
             console.log("rotateleft", oldLeft, oldRight);
             $.post("/drive", JSON.stringify({
                 left: oldLeft,

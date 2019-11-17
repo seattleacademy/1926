@@ -27,15 +27,29 @@ port.on('error', function(err) {
 var counter = 0;
 port.once('open', () => {
     log('open')
-    let length = 80;
-    const parser = port.pipe(new InterByteTimeout({ interval: 30, maxBufferSize: length }))
+    let length = 84;
+    const parser = port.pipe(new InterByteTimeout({ interval: 100, maxBufferSize: length }))
     parser.on('data', (data) => {
-        if (data.length != 80) {
-            //Something other than sensors received
-            log(data.length);
-            log(length, data.toString('ascii'));
+        if (data.length != 84 || data[0] != 19) {
+           // console.error(data.length, data.toString())
+            setTimeout(stopStreaming, 0);
+            setTimeout(() => port.drain(), 50)
+            setTimeout(streamSensors, 300);
             return;
         }
+        var checksum = 0;
+        for (var i = data.length - 1; i >= 0; i--) {
+            checksum += data[i];
+        }
+        if (checksum & 0xFF) {
+            console.error('Checksum fail', 'checksum');
+            return
+        }
+        data = data.slice(3,-1);
+        //console.log(data.length, data.toString('hex'))
+
+
+
         let buffer = new Uint8Array(data).buffer;
         let dataView = new DataView(buffer);
         sensors['bumps'] = dataView.getUint8(0);
@@ -45,13 +59,13 @@ port.once('open', () => {
         sensors['cliffFrontRight'] = dataView.getUint8(4);
         sensors['cliffRight'] = dataView.getUint8(5);
         sensors['virtualWall'] = dataView.getUint8(6);
-        sensors['overCurrents'] = dataView.getUint8(7);
-        sensors['dirtDetect'] = dataView.getUint8(8);
-        sensors['unused1'] = dataView.getUint8(9);
+        //sensors['overCurrents'] = dataView.getUint8(7);
+        // sensors['dirtDetect'] = dataView.getUint8(8);
+        //sensors['unused1'] = dataView.getUint8(9);
         sensors['irOpcode'] = dataView.getUint8(10);
         sensors['buttons'] = dataView.getUint8(11);
-        sensors['distance'] = dataView.getInt16(12);
-        sensors['angle'] = dataView.getInt16(14);
+        //sensors['distance'] = dataView.getInt16(12);
+        //sensors['angle'] = dataView.getInt16(14);
         sensors['chargingState'] = dataView.getUint8(15);
         sensors['voltage'] = dataView.getUint16(17);
         sensors['current'] = dataView.getInt16(19);
@@ -63,15 +77,15 @@ port.once('open', () => {
         sensors['cliffFrontLeftSignal'] = dataView.getUint16(30);
         sensors['cliffFrontRightSignal'] = dataView.getUint16(32);
         sensors['cliffRightSignal'] = dataView.getUint16(34);
-        sensors['unused2'] = dataView.getUint8(35);
-        sensors['unused3'] = dataView.getUint16(37);
+        //sensors['unused2'] = dataView.getUint8(35);
+        //sensors['unused3'] = dataView.getUint16(37);
         sensors['chargerAvailable'] = dataView.getUint8(39);
         sensors['openInterfaceMode'] = dataView.getUint8(40);
         sensors['songNumber'] = dataView.getUint8(41);
         sensors['songPlaying'] = dataView.getUint8(42);
-        sensors['oiStreamNumPackets'] = dataView.getUint8(43);
-        sensors['velocity'] = dataView.getInt16(44);
-        sensors['radius'] = dataView.getInt16(46);
+        //sensors['oiStreamNumPackets'] = dataView.getUint8(43);
+        //sensors['velocity'] = dataView.getInt16(44);
+        //sensors['radius'] = dataView.getInt16(46);
         sensors['velocityRight'] = dataView.getInt16(48);
         sensors['velocityLeft'] = dataView.getInt16(50);
         sensors['encoderCountLeft'] = dataView.getInt16(52);
@@ -81,13 +95,15 @@ port.once('open', () => {
         sensors['lightBumperFrontLeft'] = dataView.getUint16(59);
         sensors['lightBumperCenterLeft'] = dataView.getUint16(61);
         sensors['lightBumperCenterRight'] = dataView.getUint16(63);
-        sensors['irOpcodeLeft'] = dataView.getUint8(65);
-        sensors['irOpcodeRight'] = dataView.getUint8(66);
-        sensors['leftMotorCurrent'] = dataView.getInt16(67);
-        sensors['rightMotorCurrent'] = dataView.getInt16(69);
-        sensors['mainBrushCurrent'] = dataView.getInt16(71);
-        sensors['sideBrushCurrent'] = dataView.getInt16(73);
-        sensors['stasis'] = dataView.getUint8(74);
+        sensors['lightBumperFrontRight'] = dataView.getUint16(65);
+        sensors['lightBumperRight'] = dataView.getUint16(67);
+        sensors['irOpcodeLeft'] = dataView.getUint8(69);
+        sensors['irOpcodeRight'] = dataView.getUint8(70);
+        sensors['leftMotorCurrent'] = dataView.getInt16(71);
+        sensors['rightMotorCurrent'] = dataView.getInt16(73);
+        //sensors['mainBrushCurrent'] = dataView.getInt16(75);
+        //sensors['sideBrushCurrent'] = dataView.getInt16(77);
+        sensors['stasis'] = dataView.getUint8(79);
         sensors['timestamp'] = Date.now();
         sensors['counter'] = counter++;
         log(sensors)
@@ -97,6 +113,10 @@ port.once('open', () => {
 
 function reset() {
     log('reset')
+    // setTimeout(stopStreaming, 0);
+    // setTimeout(start, 30);
+    // setTimeout(() => port.drain(), 60)
+    // setTimeout(()=>port.write(Buffer.from([7])), 90);
     port.write(Buffer.from([7]));
 }
 
@@ -140,6 +160,14 @@ function getSensors() {
     port.write(Buffer.from([142, 100]));
 }
 
+function streamSensors() {
+    port.write(Buffer.from([148, 1, 100]));
+}
+
+function stopStreaming() {
+    port.write(Buffer.from([150, 0]));
+}
+
 async function drive(left, right) {
     if (sensors.openInterfaceMode < 2) {
         safe();
@@ -155,10 +183,8 @@ async function drive(left, right) {
     port.write(Buffer.from(buffer));
 }
 
-setTimeout(start, 0);
-setTimeout(safe, 300); //Make 300ms to hear beep, 100ms to not
 
-let senseTimeout = setInterval(getSensors, 1000)
+
 
 app.all('/drive', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -226,7 +252,7 @@ var moveTimeouts = [];
 function danceWhen(move, t) {
     let timeout = setTimeout(() => {
         console.log('danceWhen', move, t)
-        drive(move[0],move[1]);
+        drive(move[0], move[1]);
     }, t)
     moveTimeouts.push(timeout);
 }
@@ -257,7 +283,7 @@ app.all('/sensors', function(req, res) {
     res.send(sensors);
 });
 
-app.use('', express.static('public', { 'index': false }), serveIndex('public', { 'icons': false }))
+app.use('', express.static('public', { 'index': false }), serveIndex('public', { 'icons': true }))
 
 var server = http.createServer(app);
 const serverPort = 3001;
@@ -275,13 +301,27 @@ app.all('/reset', function(req, res) {
     res.send(JSON.stringify(sensors));
 });
 
+
+
 function shutdown() {
     start(); //put in passive mode
-    clearTimeout(senseTimeout);
-    setTimeout(stop, 20); //put in off mode
-    //Assuming that close flushes, check this assumption
-    setTimeout(() => { port.close(() => { process.exit(0) }) }, 40)
-    //port.close(() => { process.exit(0) });
+    //clearTimeout(senseTimeout);
+    setTimeout(stopStreaming, 20);
+
+    setTimeout(stop, 40); //put in off mode
+    setTimeout(() => port.drain(), 60)
+
+    setTimeout(() => { port.close(() => { process.exit(0) }) }, 80)
 }
+
+setTimeout(start, 0);
+setTimeout(safe, 300); //Make 300ms to hear beep, 100ms to not
+
+setTimeout(() => port.drain(), 350)
+
+//setTimeout(reset, 1000); //Make 300ms to hear beep, 100ms to not
+setTimeout(streamSensors, 400); //Make 300ms to hear beep, 100ms to not
+
+//let senseTimeout = setInterval(getSensors, 1000)
 //For control-c
 process.on('SIGINT', shutdown);
