@@ -9,6 +9,10 @@ app.use(bodyParser.text({ type: "*/*" }))
 phoneSensors = {};
 var sensors = {};
 var counter = 0;
+var checksumErr = 0;
+var packetErr = 0;
+var lastActuator = 0;
+var lastUser = '';
 
 function log(msg) {
     //console.info(msg);
@@ -24,16 +28,16 @@ port.on('error', function(err) {
     console.error('Error: ', err.message)
 })
 
-var counter = 0;
 port.once('open', () => {
     log('open')
     let length = 84;
     const parser = port.pipe(new InterByteTimeout({ interval: 100, maxBufferSize: length }))
     parser.on('data', (data) => {
         if (data.length != 84 || data[0] != 19) {
-           // console.error(data.length, data.toString())
+            packetErr++
+            // console.error(data.length, data.toString())
             setTimeout(stopStreaming, 0);
-            setTimeout(() => port.drain(), 50)
+            setTimeout(() => port.drain(), 50) //flush?
             setTimeout(streamSensors, 300);
             return;
         }
@@ -43,9 +47,10 @@ port.once('open', () => {
         }
         if (checksum & 0xFF) {
             console.error('Checksum fail', 'checksum');
+            checksumErr++;
             return
         }
-        data = data.slice(3,-1);
+        data = data.slice(3, -1);
         //console.log(data.length, data.toString('hex'))
 
 
@@ -106,6 +111,10 @@ port.once('open', () => {
         sensors['stasis'] = dataView.getUint8(79);
         sensors['timestamp'] = Date.now();
         sensors['counter'] = counter++;
+        sensors['packetErr'] = packetErr;
+        sensors['checksumErr'] = checksumErr;
+        sensors['lastActuator'] = lastActuator;
+        sensors['lastUser'] = lastUser;
         log(sensors)
 
     })
@@ -118,6 +127,14 @@ function reset() {
     // setTimeout(() => port.drain(), 60)
     // setTimeout(()=>port.write(Buffer.from([7])), 90);
     port.write(Buffer.from([7]));
+}
+
+function toggleRTS() {
+    log('toggleRTS')
+    port.get(console.error, console.log);
+    port.set({ rts: true }, console.error);
+    setTimeout(() => port.set({ rts: false }, console.error), 500);
+    //port.write(Buffer.from([7]));
 }
 
 function start() {
@@ -184,7 +201,12 @@ async function drive(left, right) {
 }
 
 
+app.all('/toggleRTS', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    toggleRTS();
+    res.send();
 
+});
 
 app.all('/drive', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -194,17 +216,45 @@ app.all('/drive', function(req, res) {
     res.send();
 
 });
-
+var lastTime = 0;
 app.all('/phone', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     phoneSensors = req.query || JSON.parse(req.body);
-    //log(phoneSensors);
-    for (key in phoneSensors) {
-        sensors[key] = phoneSensors[key]; // copies each property to the objCopy object
+    //console.log(phoneSensors);
+    let thisTime = phoneSensors.locationHeadingTimestamp_since1970;
+    //console.log(thisTime,lastTime)
+    if(thisTime < lastTime){
+        lastTime = thisTime;
+        console.log('out of sync')
+        return
     }
+    lastTime = thisTime;
+    for (key in phoneSensors) {
+        //if (key == 'locationTrueHeading' || key == 'thisTime' || key == 'batteryState') {
+            sensors[key] = phoneSensors[key]; // copies each property to the objCopy object
+        //}
+       // console.log(sensors);
+    }
+    sensors['thisTime'] = phoneSensors[thisTime]; // copies each property to the objCopy object
     res.send(JSON.stringify(sensors));
 });
 
+app.all('/safe', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    safe();
+    res.send(JSON.stringify(sensors));
+});
+app.all('/full', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    full();
+    res.send(JSON.stringify(sensors));
+});
+
+app.all('/start', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    start();
+    res.send(JSON.stringify(sensors));
+});
 var singTimeouts = [];
 
 function clearSingTimeouts() {

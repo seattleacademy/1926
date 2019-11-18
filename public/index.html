@@ -3,13 +3,21 @@
 
 <head>
     <title>SAASBOT</title>
+    <style type="text/css">
+    summary {
+        cursor: pointer;
+    }
+    </style>
 </head>
 
 <body>
     <div>
-        <button id="setRTS">setRTS</button>
+        <button id="toggleRTS">toggleRTS</button>
         <button id="reset">reset</button>
         <button id="forward">forward</button>
+        <button id="safe">safe</button>
+        <button id="full">full</button>
+        <button id="start">start</button>
         <button id="halt">halt</button>
         <button id="cw" class="drive" data-command='{"left":-100,"right":100}'>cw</button>
         <button id="nw" class="drive" data-command='{"left":100,"right":50}'>nw</button>
@@ -18,14 +26,15 @@
         <button class="drive" data-command='{"left":50,"right":100}'>ne</button>
         <button class="drive" data-command='{"left":100,"right":50}'>nw</button>
     </div>
-    Left    <div id="leftSpeed">0</div>
-
+    Left <div id="leftSpeed">0</div>
     Right <div id="rightSpeed">0</div>
-    <pre id="mode">0</pre>
+    <details open>
+        <summary>sensors</summary>
+        <pre id="sensors">0</pre>
+    </details>
     Voltage <div id='millivolts'>.</div>
     <script src='js/jquery-3.4.1.min.js'></script>
     <script>
-
     var latestDate = {};
 
     function sensorUpdate(data) {
@@ -34,7 +43,7 @@
 
 
     }
-console.log(window.document.location)
+    console.log(window.document.location)
 
     // var host = window.document.location.host;
     // var ws = new WebSocket('ws://' + host);
@@ -42,21 +51,22 @@ console.log(window.document.location)
     // ws.onmessage = function(event) {
     //     sensorUpdate(JSON.parse(event.data));
     // };
-  
 
-      function readSensors() {
+
+    function readSensors() {
         fetch('/sensors')
             .then((resp) => resp.json())
             .then(function(data) {
                 latestData = data;
                 // console.log(latestData)
                 $('#millivolts').text(latestData.voltage);
-                let sensorsNow = JSON.stringify(latestData,null,2)
+                let sensorsNow = JSON.stringify(latestData, null, 2)
                 //sensorsNow = sensorsNow.split(',').join('\n');
-                $('#mode').text(sensorsNow);
+                $('#sensors').text(sensorsNow);
             })
+
     }
-    setInterval(readSensors, 200);
+    let readSensorTimer = setInterval(readSensors, 200);
 
     $(".drive").click(function(e) {
         command = $(this).data('command');
@@ -71,6 +81,11 @@ console.log(window.document.location)
         $.post("/reset");
     });
 
+
+    $("#toggleRTS").click(function() {
+        console.log('toggleRTS')
+        $.post("/toggleRTS");
+    });
     $("#forward").click(function() {
         console.log(JSON.stringify({
             left: 20,
@@ -185,12 +200,19 @@ console.log(window.document.location)
             song: song
         }));
     });
+    $("#safe").click(function() {
+        $.post("/safe");
+    });
 
+    $("#full").click(function() {
+        $.post("/full");
+    });
+        $("#start").click(function() {
+        $.post("/start");
+    });
     $("button").focus(function(e) {
         this.blur(); //Prevents space bar from clicking button
     });
-
-  
     </script>
 </body>
 
