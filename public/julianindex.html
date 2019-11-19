@@ -63,8 +63,8 @@
                 if(data.img){
                     //console.log(data.img);
                     //let image = data:image/png;base64,
-                    image = atob(data.img);
-                    image = 'data:image/png;base64' + image;
+                    //image = atob(data.img);
+                    image = 'data:image/png;base64' + data.img;
                     $("#myImage").attr("src",image);
                 }
                 $('#millivolts').text(latestData.voltage);

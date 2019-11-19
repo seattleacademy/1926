@@ -4,6 +4,10 @@ var serveIndex = require('serve-index')
 
 var app = express();
 var bodyParser = require('body-parser');
+
+//NEW
+//app.use( bodyParser.urlencoded({ extended: true }) );
+
 app.use(bodyParser.text({ type: "*/*" }))
 
 phoneSensors = {};
@@ -219,8 +223,9 @@ app.all('/drive', function(req, res) {
 var lastTime = 0;
 app.all('/phone', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    phoneSensors = req.query || JSON.parse(req.body);
-    //console.log(phoneSensors);
+    phoneSensors = req.query || req.body;
+    //console.log(phoneSensors,req.body)
+    //console.log(JSON.stringify(req.body));
     let thisTime = phoneSensors.locationHeadingTimestamp_since1970;
     //console.log(thisTime,lastTime)
     if(thisTime < lastTime){
@@ -236,6 +241,16 @@ app.all('/phone', function(req, res) {
        // console.log(sensors);
     }
     sensors['thisTime'] = phoneSensors[thisTime]; // copies each property to the objCopy object
+    res.send(JSON.stringify(sensors));
+});
+
+app.all('/img', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    // if (phoneSensors == {}) phoneSensors = req.body;
+    //let image = decodeURIComponent(req.body)
+    console.dir(req.body);
+    sensors['img'] = req.body; // copies each property to the objCopy object
     res.send(JSON.stringify(sensors));
 });
 
