@@ -125,12 +125,11 @@ port.once('open', () => {
 });
 
 function reset() {
-    log('reset')
-    // setTimeout(stopStreaming, 0);
-    // setTimeout(start, 30);
-    // setTimeout(() => port.drain(), 60)
-    // setTimeout(()=>port.write(Buffer.from([7])), 90);
-    port.write(Buffer.from([7]));
+    console.log('reset')
+    setTimeout(stopStreaming, 0);
+    setTimeout(start, 30);
+    setTimeout(() => port.drain(), 60)
+    setTimeout(()=>port.write(Buffer.from([7])), 90);
 }
 
 function toggleRTS() {
@@ -204,6 +203,20 @@ async function drive(left, right) {
     port.write(Buffer.from(buffer));
 }
 
+async function drivePWM(left, right) {
+    if (sensors.openInterfaceMode < 2) {
+        safe();
+        //Pause for at least 15ms to have safe mode take effect
+        await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    const buffer = new ArrayBuffer(5);
+    const view = new DataView(buffer);
+    view.setInt8(0, 146) // drive command
+    view.setInt16(1, left); // 2s complement for left wheel
+    view.setInt16(3, right); // 2s complement for right wheel
+    console.log('drivePWM', Buffer.from(buffer))
+    port.write(Buffer.from(buffer));
+}
 
 app.all('/toggleRTS', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -217,6 +230,15 @@ app.all('/drive', function(req, res) {
     let v = req.query;
     if (Object.keys(v).length == 0) v = JSON.parse(req.body);
     drive(v.left, v.right);
+    res.send();
+
+});
+
+app.all('/drivePWM', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    let v = req.query;
+    if (Object.keys(v).length == 0) v = JSON.parse(req.body);
+    drivePWM(v.left, v.right);
     res.send();
 
 });
