@@ -1,22 +1,24 @@
-var http = require('http');
-var express = require('express');
-var serveIndex = require('serve-index')
+const http = require('http');
 
-var app = express();
-var bodyParser = require('body-parser');
+const fs = require('fs');
+var WebSocketServer = require('ws').Server;
 
-//NEW
-//app.use( bodyParser.urlencoded({ extended: true }) );
+const express = require('express');
+const serveIndex = require('serve-index')
 
-app.use(bodyParser.text({ type: "*/*" }))
+const app = express();
+const bodyParser = require('body-parser');
+
+//large limit lets us send pictures
+app.use(bodyParser.text({ type: "*/*", limit: '50mb', extended: true }))
 
 phoneSensors = {};
-var sensors = {};
-var counter = 0;
-var checksumErr = 0;
-var packetErr = 0;
-var lastActuator = 0;
-var lastUser = '';
+const sensors = {};
+let counter = 0;
+let checksumErr = 0;
+let packetErr = 0;
+let lastActuator = 0;
+let lastUser = '';
 
 function log(msg) {
     //console.info(msg);
@@ -34,14 +36,14 @@ port.on('error', function(err) {
 
 port.once('open', () => {
     log('open')
-    let length = 84;
+    const length = 84;
     const parser = port.pipe(new InterByteTimeout({ interval: 100, maxBufferSize: length }))
     parser.on('data', (data) => {
         if (data.length != 84 || data[0] != 19) {
             packetErr++
-            // console.error(data.length, data.toString())
+            console.error(data.length, data.toString())
             setTimeout(stopStreaming, 0);
-            setTimeout(() => port.drain(), 50) //flush?
+            setTimeout(() => port.flush(), 50) //flush?
             setTimeout(streamSensors, 300);
             return;
         }
@@ -56,11 +58,8 @@ port.once('open', () => {
         }
         data = data.slice(3, -1);
         //console.log(data.length, data.toString('hex'))
-
-
-
-        let buffer = new Uint8Array(data).buffer;
-        let dataView = new DataView(buffer);
+        const buffer = new Uint8Array(data).buffer;
+        const dataView = new DataView(buffer);
         sensors['bumps'] = dataView.getUint8(0);
         sensors['wall'] = dataView.getUint8(1);
         sensors['cliffLeft'] = dataView.getUint8(2);
@@ -120,7 +119,6 @@ port.once('open', () => {
         sensors['lastActuator'] = lastActuator;
         sensors['lastUser'] = lastUser;
         log(sensors)
-
     })
 });
 
@@ -129,7 +127,7 @@ function reset() {
     setTimeout(stopStreaming, 0);
     setTimeout(start, 30);
     setTimeout(() => port.drain(), 60)
-    setTimeout(()=>port.write(Buffer.from([7])), 90);
+    setTimeout(() => port.write(Buffer.from([7])), 90);
 }
 
 function toggleRTS() {
@@ -145,7 +143,7 @@ function start() {
     port.write(Buffer.from([128]));
 }
 
-function safe() {
+async function safe() {
     log('safe')
     port.write(Buffer.from([131]));
 }
@@ -158,6 +156,11 @@ function full() {
 function stop() {
     log('stop')
     port.write(Buffer.from([173]));
+}
+
+function power() {
+    log('power')
+    port.write(Buffer.from([133]));
 }
 
 function clean() {
@@ -190,15 +193,15 @@ function stopStreaming() {
 
 async function drive(left, right) {
     if (sensors.openInterfaceMode < 2) {
-        safe();
+        await safe();
         //Pause for at least 15ms to have safe mode take effect
         await new Promise(resolve => setTimeout(resolve, 20));
     }
     const buffer = new ArrayBuffer(5);
     const view = new DataView(buffer);
     view.setInt8(0, 145) // drive command
-    view.setInt16(1, left); // 2s complement for left wheel
-    view.setInt16(3, right); // 2s complement for right wheel
+    view.setInt16(1, right); // 2s complement for left wheel
+    view.setInt16(3, left); // 2s complement for right wheel
     log('drive', Buffer.from(buffer))
     port.write(Buffer.from(buffer));
 }
@@ -214,13 +217,20 @@ async function drivePWM(left, right) {
     view.setInt8(0, 146) // drive command
     view.setInt16(1, left); // 2s complement for left wheel
     view.setInt16(3, right); // 2s complement for right wheel
-    console.log('drivePWM', Buffer.from(buffer))
+    //console.log('drivePWM', Buffer.from(buffer))
     port.write(Buffer.from(buffer));
 }
 
 app.all('/toggleRTS', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     toggleRTS();
+    res.send(sensors);
+
+});
+
+app.all('/dock', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    dock();
     res.send();
 
 });
@@ -248,9 +258,9 @@ app.all('/phone', function(req, res) {
     phoneSensors = req.query || req.body;
     //console.log(phoneSensors,req.body)
     //console.log(JSON.stringify(req.body));
-    let thisTime = phoneSensors.locationHeadingTimestamp_since1970;
+    const thisTime = phoneSensors.locationHeadingTimestamp_since1970;
     //console.log(thisTime,lastTime)
-    if(thisTime < lastTime){
+    if (thisTime < lastTime) {
         lastTime = thisTime;
         console.log('out of sync')
         return
@@ -258,9 +268,9 @@ app.all('/phone', function(req, res) {
     lastTime = thisTime;
     for (key in phoneSensors) {
         //if (key == 'locationTrueHeading' || key == 'thisTime' || key == 'batteryState') {
-            sensors[key] = phoneSensors[key]; // copies each property to the objCopy object
+        sensors[key] = phoneSensors[key]; // copies each property to the objCopy object
         //}
-       // console.log(sensors);
+        // console.log(sensors);
     }
     sensors['thisTime'] = phoneSensors[thisTime]; // copies each property to the objCopy object
     res.send(JSON.stringify(sensors));
@@ -270,7 +280,7 @@ app.all('/img', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     // if (phoneSensors == {}) phoneSensors = req.body;
-    //let image = decodeURIComponent(req.body)
+    //const image = decodeURIComponent(req.body)
     console.dir(req.body);
     sensors['img'] = req.body; // copies each property to the objCopy object
     res.send(JSON.stringify(sensors));
@@ -292,6 +302,19 @@ app.all('/start', function(req, res) {
     start();
     res.send(JSON.stringify(sensors));
 });
+
+app.all('/stop', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    stop();
+    res.send(JSON.stringify(sensors));
+});
+
+app.all('/power', function(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    power();
+    res.send(JSON.stringify(sensors));
+});
+
 var singTimeouts = [];
 
 function clearSingTimeouts() {
@@ -300,7 +323,7 @@ function clearSingTimeouts() {
 }
 
 function singWhen(song, t) {
-    let timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
         console.log(song, t)
 
         port.write(Buffer.from(song)); //store song
@@ -321,7 +344,7 @@ app.all('/sing', function(req, res) {
     let timeToPlay = 0;
     while (arr.length > 0) {
         arr.length > 16 ? len = 16 : len = arr.length;
-        let payload = [140, 0, len];
+        const payload = [140, 0, len];
         let duration = 0; //Can be used for dividing song into pieces
         for (let i = 0; i < len; i++) {
             payload.push(Math.round(arr[i][0]));
@@ -337,7 +360,7 @@ app.all('/sing', function(req, res) {
 var moveTimeouts = [];
 
 function danceWhen(move, t) {
-    let timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
         console.log('danceWhen', move, t)
         drive(move[0], move[1]);
     }, t)
@@ -345,16 +368,16 @@ function danceWhen(move, t) {
 }
 app.all('/dance', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    let dance = req.query.dance || JSON.parse(req.body).dance;
+    const dance = req.query.dance || JSON.parse(req.body).dance;
     log(dance)
     dance = dance.replace(/\s/g, ''); //remove white space
     if (dance[1] != '[') dance = '[' + dance + ']'; //add outer brackets if user left out
 
     //clearTimeouts() //Shoud we stop other dances in the list?
     var arr = JSON.parse(dance);
-    let timeToDance = 0;
+    const timeToDance = 0;
     var payload = [];
-    for (let i = 0; i < arr.length; i++) {
+    for (const i = 0; i < arr.length; i++) {
         payload = [];
         payload.push(Math.round(arr[i][0]));
         payload.push(Math.round(arr[i][1]));
@@ -370,12 +393,6 @@ app.all('/sensors', function(req, res) {
     res.send(sensors);
 });
 
-app.use('', express.static('public', { 'index': false }), serveIndex('public', { 'icons': true }))
-
-var server = http.createServer(app);
-const serverPort = 3001;
-server.listen(serverPort);
-console.log('listening on port', serverPort)
 
 app.all('/all', function(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -389,26 +406,39 @@ app.all('/reset', function(req, res) {
 });
 
 
-
 function shutdown() {
     start(); //put in passive mode
-    //clearTimeout(senseTimeout);
     setTimeout(stopStreaming, 20);
-
     setTimeout(stop, 40); //put in off mode
     setTimeout(() => port.drain(), 60)
-
     setTimeout(() => { port.close(() => { process.exit(0) }) }, 80)
 }
 
+app.use('', express.static('public', { 'index': false }), serveIndex('public', { 'icons': true }))
+
+var server = http.createServer(app);
+const serverPort = 3001;
+server.listen(serverPort);
+console.log('listening on port', serverPort)
+
+var wss = new WebSocketServer({ server: server });
+wss.on('connection', function(ws) {
+    var id = setInterval(function() {
+        ws.send(JSON.stringify(sensors), function() { /* ignore errors */ });
+    }, 30);
+   // console.log('connection to client',id);
+    ws.on('close', function() {
+        //console.log('closing client',id);
+        clearInterval(id);
+    });
+});
+
 setTimeout(start, 0);
+setTimeout(() => port.drain(), 100)
+setTimeout(streamSensors, 200);
 setTimeout(safe, 300); //Make 300ms to hear beep, 100ms to not
 
-setTimeout(() => port.drain(), 350)
 
-//setTimeout(reset, 1000); //Make 300ms to hear beep, 100ms to not
-setTimeout(streamSensors, 400); //Make 300ms to hear beep, 100ms to not
-
-//let senseTimeout = setInterval(getSensors, 1000)
+//const senseTimeout = setInterval(getSensors, 1000)
 //For control-c
 process.on('SIGINT', shutdown);

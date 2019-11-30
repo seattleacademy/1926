@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>1</title>
+    <style>
+    	#myCanvas {
+    		background:#ccc;
+    	}
+    </style>
+</head>
+
+<body>
+    <button id="stop">stop</button>
+    <button id="start">start</button>
+    <button id="safe">safe</button>
+    <button id="full">full</button>
+    <button id="reset">reset</button>
+    <button id="dock">dock</button>
+    <button id="power">power</button>
+	<canvas id="myCanvas"></canvas>
+    <details open>
+        <pre id="sensors"></pre>
+    </details>
+    <script>
+    const canvas = document.querySelector('#myCanvas');
+    const ctx = canvas.getContext('2d');
+    console.log(ctx);
+    let latestData = {};
+
+    function readSensors() {
+        fetch('/sensors')
+            .then((resp) => resp.json())
+            .then(function(data) {
+                latestData = data;
+                sensorsNow = JSON.stringify(latestData, null, 2);
+                document.querySelector('#sensors').innerHTML = sensorsNow;
+            })
+    }
+   // const readSensorsInterval = setInterval(readSensors, 100);
+    const drive = (left, right) => {
+        let message = '/drive?left=';
+        message += left;
+        message += '&right=';
+        message += right;
+        console.log(message);
+        fetch(message);
+    }
+    let delta = 50;
+    let vl = 0;
+    let vr = 0;
+
+    function doKeyDown(e) {
+    	console.log(e.key)
+        //console.table(latestData);
+        vl = latestData.velocityLeft;
+        vr = latestData.velocityRight;
+        if (e.key == ' ') {
+            e.preventDefault();
+            vl = 0;
+            vr = 0;
+            drive(vl, vr);
+        }
+        if (e.key == 'a') {
+            vl -= delta;
+            vr += delta;
+            drive(vl, vr);
+        }
+        if (e.key == 'd') {
+            vl += delta;
+            vr -= delta;
+            drive(vl, vr);
+        }
+
+        if (e.key == 'w') {
+            vl += delta;
+            vr += delta;
+            drive(vl, vr);
+        }
+        if (e.key == 's') {
+            vl -= delta;
+            vr -= delta;
+            drive(vl, vr);
+        }
+        if (e.key == 'ArrowLeft') {
+            e.preventDefault();
+            vl = -delta;
+            vr = delta;
+            drive(vl, vr);
+        } 
+        if (e.key == 'ArrowRight') {
+            e.preventDefault();
+            vl = delta;
+            vr = -delta;
+            drive(vl, vr);
+        }
+        if (e.key == 'ArrowUp') {
+            e.preventDefault();
+            vl = delta;
+            vr = delta;
+            drive(vl, vr);
+        }
+        if (e.key == 'ArrowDown') {
+            e.preventDefault();
+            vl = -delta;
+            vr = -delta;
+            drive(vl, vr);
+        }
+    }
+
+    document.querySelector('body').addEventListener('keydown', doKeyDown);
+    document.querySelector('#stop').addEventListener('click', e => fetch('/stop'));
+    document.querySelector('#start').addEventListener('click', e => fetch('/start'));
+    document.querySelector('#safe').addEventListener('click', e => fetch('/safe'));
+    document.querySelector('#full').addEventListener('click', e => fetch('/full'));
+    document.querySelector('#reset').addEventListener('click', e => fetch('/reset'));
+    document.querySelector('#dock').addEventListener('click', e => fetch('/dock'));
+    document.querySelector('#power').addEventListener('click', e => fetch('/power'));
+    
+    var host = window.document.location.host;
+    var ws = new WebSocket('wss://' + host);
+    //console.dir(ws)
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data)
+        //console.log(data)
+        latestData = data;
+        sensorsNow = JSON.stringify(latestData, null, 2);
+        document.querySelector('#sensors').innerHTML = sensorsNow;
+    };
+    </script>
+</body>
+
+</html>

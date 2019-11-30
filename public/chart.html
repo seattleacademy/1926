@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SAASBOT</title>
+    <style type="text/css">
+    summary {
+        cursor: pointer;
+    }
+    </style>
+</head>
+
+<body>
+    <div>
+        <button id="safe">safe</button>
+        <button id="full">full</button>
+        <button id="start">start</button>
+        <button id="halt">halt</button>
+    </div>
+
+    <details open>
+        <summary>sensors</summary>
+        <pre id="sensors">0</pre>
+        <img id="myImage" />
+    </details>
+    Voltage <div id='millivolts'>.</div>
+    <script src='js/jquery-3.4.1.min.js'></script>
+    <script>
+    var latestDate = {};
+
+    function sensorUpdate(data) {
+        //console.log(JSON.stringify(data, null, 4));
+        latestData = data;
+
+
+    }
+    console.log(window.document.location)
+
+    // var host = window.document.location.host;
+    // var ws = new WebSocket('ws://' + host);
+    // //var ws = new WebSocket('ws://pi5:5001');
+    // ws.onmessage = function(event) {
+    //     sensorUpdate(JSON.parse(event.data));
+    // };
+
+
+    function readSensors() {
+        fetch('/sensors')
+            .then((resp) => resp.json())
+            .then(function(data) {
+                latestData = data;
+                if (data.img) {
+                    image = 'data:image/png;base64' + data.img;
+                    $("#myImage").attr("src", image);
+                }
+                $('#millivolts').text(latestData.voltage);
+                let sensorsNow = JSON.stringify(latestData, null, 2)
+                $('#sensors').text(sensorsNow);
+            })
+
+    }
+    let readSensorTimer = setInterval(readSensors, 200);
+
+    $("#halt").click(function() {
+        $.post("/drivePWM", JSON.stringify({
+            left: 0,
+            right: 0
+        }));
+    });
+
+    $("#safe").click(function() {
+        $.post("/safe");
+    });
+
+    $("#full").click(function() {
+        $.post("/full");
+    });
+
+    $("#start").click(function() {
+        $.post("/start");
+    });
+    </script>
+
+
+
+
+</body>
+
+</html>

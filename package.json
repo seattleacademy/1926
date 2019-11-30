@@ -21,6 +21,7 @@
     "body-parser": "*",
     "express": "*",
     "serialport": "*",
-    "serve-index": "*"
+    "serve-index": "*",
+    "ws": "^7.2.0"
   }
 }
