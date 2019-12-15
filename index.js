@@ -128,6 +128,9 @@ function reset() {
     setTimeout(start, 30);
     setTimeout(() => port.drain(), 60)
     setTimeout(() => port.write(Buffer.from([7])), 90);
+    setTimeout(() => { port.close(() => { console.log('close') }) }, 200)
+    setTimeout(() => { port.open(() => { console.log('open') }) }, 5000)
+
 }
 
 function toggleRTS() {
